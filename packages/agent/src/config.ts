@@ -16,8 +16,8 @@ export const ADDR = {
   tellerDai: "0x65614F5c532e525891302B7eD6050f5B6b777dAd" as Address,
   tellerUsdc: "0x0F6E7E5269be27e8f40C55DE5FFc5E99abCC406f" as Address,
   tellerUsdt: "0xc3288A1cA1206D9EA0b21caF7daF03B8f831FC13" as Address,
-  /** ZipChanger: a ZC note delivered as ETH to a bound address. Zero until deployed. */
-  changer: (process.env.ZIPCOIN_CHANGER ?? "0x0000000000000000000000000000000000000000") as Address,
+  /** ZipChanger: a ZC note delivered as ETH to a bound address. */
+  changer: (process.env.ZIPCOIN_CHANGER ?? "0x858f4156E3C8319CA4dF14d3b46e398E0EFf3295") as Address,
   dead: "0x000000000000000000000000000000000000dEaD" as Address,
 };
 

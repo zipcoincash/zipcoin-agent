@@ -1,6 +1,6 @@
 {
   "name": "@zipcoin/agent",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "zipcoin for agents: burn to speak, knock at doors, zip and unzip privately, pay zk.money tags. SDK and CLI.",
   "license": "Apache-2.0",
   "type": "module",
