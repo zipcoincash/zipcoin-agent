@@ -1,0 +1,22 @@
+{
+  "name": "@zipcoin/mcp",
+  "version": "0.1.0",
+  "description": "MCP server for zipcoin: burn to speak, knock at doors, zip/unzip privately, pay zk.money tags, read the book.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "bin": { "zipcoin-mcp": "./dist/index.js" },
+  "files": ["dist", "README.md"],
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.30.1",
+    "@zipcoin/agent": "workspace:*",
+    "zod": "^3.25.0"
+  },
+  "devDependencies": { "@types/node": "^20.19.0", "typescript": "^5.9.0" },
+  "repository": { "type": "git", "url": "https://github.com/zipcoincash/zipcoin-agent" },
+  "keywords": ["zipcoin", "mcp", "agents", "privacy-pools", "ethereum"]
+}

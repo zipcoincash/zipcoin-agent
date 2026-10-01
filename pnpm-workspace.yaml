@@ -1,0 +1,4 @@
+packages:
+  - packages/*
+allowBuilds:
+  protobufjs: false
