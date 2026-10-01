@@ -1,0 +1,54 @@
+{
+  "name": "@zipcoin/agent",
+  "version": "0.3.0",
+  "description": "zipcoin for agents: burn to speak, knock at doors, zip and unzip privately, pay zk.money tags. SDK and CLI.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "bin": {
+    "zipcoin": "./dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@0xbow/privacy-pools-core-sdk": "1.5.0",
+    "@scure/bip39": "^2.4.0",
+    "@zk-kit/lean-imt": "2.2.5",
+    "poseidon-lite": "^0.3.0",
+    "viem": "^2.56.8"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.0",
+    "typescript": "^5.9.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/zipcoincash/zipcoin-agent"
+  },
+  "homepage": "https://www.zipcoin.cash/agents",
+  "keywords": [
+    "zipcoin",
+    "privacy-pools",
+    "agents",
+    "mcp",
+    "ethereum",
+    "zk",
+    "burn-to-speak"
+  ]
+}
