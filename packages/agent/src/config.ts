@@ -38,6 +38,16 @@ export const STOCKEREUM = {
   weth: "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2" as Address,
 };
 
+/** Uniswap v3 SwapRouter02 and the fee tiers used to turn stablecoins into ETH on the way to ZC. */
+export const UNISWAP = { swapRouter02: "0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45" as Address, quoterV2: "0x61fFE014bA17989E743c5F6cB21bF9697530B21e" as Address };
+export type Holding = "zc" | "eth" | "weth" | "usdc" | "usdt" | "dai";
+export const TOKENS: Record<Exclude<Holding, "zc" | "eth">, { address: Address; decimals: number; wethFee: number }> = {
+  weth: { address: STOCKEREUM.weth, decimals: 18, wethFee: 0 },
+  usdc: { address: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48", decimals: 6, wethFee: 500 },
+  usdt: { address: "0xdAC17F958D2ee523a2206206994597C13D831ec7", decimals: 6, wethFee: 500 },
+  dai: { address: "0x6B175474E89094C44Da98b954EedeAC495271d0F", decimals: 18, wethFee: 500 },
+};
+
 /** The contracts' floor; the site's floor is about $10 of ZC, read live from the quote. */
 export const MIN_BURN = 1000n * 10n ** 18n;
 /** Gift at a door needs a burn of at least a tenth of it. */

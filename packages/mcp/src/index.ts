@@ -24,7 +24,7 @@ server.registerTool("zipcoin_door", { description: "Everything burned at someone
 server.registerTool(
   "zipcoin_speak",
   {
-    description: "Burn ZC to publish a message in the zipcoin book, permanently, signed by this wallet. Costs the burn (default about $10 of ZC); if the wallet has only ETH, the ZC is bought first. Use anonymous=true to burn from a zipped note instead so the message carries no address (needs an approved note of at least the relayer minimum, usually 10,000 ZC).",
+    description: "Burn ZC to publish a message in the zipcoin book, permanently, signed by this wallet. Costs the burn (default about $10 of ZC); if the wallet has only ETH, the ZC is bought first. Use anonymous=true to burn from a zipped note so the message carries no address; with no note it buys, zips, waits for vetting (a few minutes) and burns, all in one call (floor about 3,200 ZC). The wallet may hold ETH, WETH, USDC, USDT, DAI or ZC; whatever is there is used.",
     inputSchema: { message: z.string().max(280), burnZc: z.string().optional().describe("ZC to burn, e.g. '2000'; default is the $10 floor"), usd: z.number().optional().describe("or a dollar amount to burn"), envelope: z.string().max(120).optional().describe("who it is for, in words"), anonymous: z.boolean().default(false) },
   },
   async ({ message, burnZc, usd, envelope, anonymous }) => {

@@ -65,8 +65,8 @@ try {
     case "speak": {
       const message = rest.join(" ");
       const burn = await burnAmount();
-      const r = flags.anon ? await z.speakAnon(message, burn, { target: str("envelope") }) : await z.speak(message, burn, str("envelope") ?? "");
-      out(json ? r : `spoken: ${fmt(burn)} zc burned\n${r.url}`);
+      const r = flags.anon ? await z.speakAnon(message, burn, { target: str("envelope"), onProgress: (m) => console.error(`… ${m}`) }) : await z.speak(message, burn, str("envelope") ?? "");
+      out(json ? r : `spoken${flags.anon ? " anonymously" : ""}: ${fmt(burn)} zc burned\n${r.url}`);
       break;
     }
     case "knock": {
@@ -75,8 +75,8 @@ try {
       const message = words.join(" ");
       const burn = await burnAmount();
       const gift = str("gift") ? parseUnits(str("gift")!, 18) : 0n;
-      const r = flags.anon ? await z.speakAnon(message, burn, { door, gift, target: str("envelope") }) : await z.knock(door, message, burn, gift, str("envelope") ?? "");
-      out(json ? r : `knocked at ${door}: ${fmt(burn)} zc burned${gift ? `, ${fmt(gift)} zc gift` : ""}\n${r.url}`);
+      const r = flags.anon ? await z.speakAnon(message, burn, { door, gift, target: str("envelope"), onProgress: (m) => console.error(`… ${m}`) }) : await z.knock(door, message, burn, gift, str("envelope") ?? "");
+      out(json ? r : `knocked${flags.anon ? " anonymously" : ""} at ${door}: ${fmt(burn)} zc burned${gift ? `, ${fmt(gift)} zc gift` : ""}\n${r.url}`);
       break;
     }
     case "buy": {
@@ -86,8 +86,8 @@ try {
       break;
     }
     case "balance": {
-      const [zcBal, ethBal] = await Promise.all([z.zcBalance(), z.address ? z.pub.getBalance({ address: z.address }) : 0n]);
-      out(json ? { address: z.address, zc: zcBal, eth: ethBal } : `${z.address}\n${fmt(zcBal)} ZC · ${fmt(ethBal)} ETH`);
+      const h = await z.holdings();
+      out(json ? { address: z.address, ...h } : `${z.address}\n${fmt(h.zc)} ZC · ${fmt(h.eth)} ETH · ${fmt(h.weth)} WETH · ${fmt(h.usdc, 6)} USDC · ${fmt(h.usdt, 6)} USDT · ${fmt(h.dai)} DAI\n(speak, knock and zip spend whatever is here, in that order)`);
       break;
     }
     case "zip": {
@@ -152,7 +152,9 @@ try {
 
   speak "message" [--burn ZC | --usd 10] [--envelope "…"] [--anon]
   knock <door> "message" [--burn ZC | --usd 10] [--gift ZC] [--anon]
-  buy <eth>                               (speak, knock and zip buy any ZC shortfall with ETH on their own)
+      pays with whatever the wallet holds: ZC, else ETH, else WETH / USDC / USDT / DAI (sold for ETH, then ZC)
+      --anon burns from a zipped note; with no note it buys, zips, waits for vetting (minutes) and burns, in one go
+  buy <eth>
   balance
   zip <amount> [--pool zc|eth|dai|usdc|usdt]
   notes [--pool …]

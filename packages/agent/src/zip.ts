@@ -106,10 +106,37 @@ export function context(w: WithdrawalJson, scope: bigint) {
   return BigInt(keccak256(enc)) % SNARK_SCALAR_FIELD;
 }
 
-/** Circuit artifacts (0xbow's Groth16 ceremony) are fetched once from zipcoin.cash and integrity-checked by the SDK. */
+/**
+ * Circuit artifacts (0xbow's Groth16 ceremony, ~23 MB) are downloaded once into ~/.zipcoin/artifacts (or $ZIPCOIN_HOME) and
+ * read from disk after that; the SDK checks their hashes every time, so a tampered file cannot be used.
+ */
 async function loadSdk() {
-  const sdk = await import("@0xbow/privacy-pools-core-sdk");
-  const circuits = new sdk.Circuits({ browser: true, baseUrl: `${process.env.ZIPCOIN_ARTIFACTS ?? "https://www.zipcoin.cash"}/` });
+  const [sdk, fs, path, os] = await Promise.all([import("@0xbow/privacy-pools-core-sdk"), import("node:fs"), import("node:path"), import("node:os")]);
+  const home = process.env.ZIPCOIN_HOME ?? path.join(os.homedir(), ".zipcoin");
+  const dir = path.join(home, "artifacts");
+  const origin = process.env.ZIPCOIN_ARTIFACTS ?? "https://www.zipcoin.cash";
+  fs.mkdirSync(dir, { recursive: true });
+  const files = ["commitment.wasm", "commitment.vkey", "commitment.zkey", "withdraw.wasm", "withdraw.vkey", "withdraw.zkey"];
+  for (const f of files) {
+    const dest = path.join(dir, f);
+    if (fs.existsSync(dest) && fs.statSync(dest).size > 0) continue;
+    let lastErr: unknown;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        const r = await fetch(`${origin}/artifacts/${f}`);
+        if (!r.ok) throw new Error(`${f}: ${r.status}`);
+        fs.writeFileSync(dest + ".part", new Uint8Array(await r.arrayBuffer()));
+        fs.renameSync(dest + ".part", dest);
+        lastErr = null;
+        break;
+      } catch (e) {
+        lastErr = e;
+        await new Promise((r) => setTimeout(r, 1500 * (attempt + 1)));
+      }
+    }
+    if (lastErr) throw new Error(`could not download circuit file ${f} from ${origin}: ${lastErr instanceof Error ? lastErr.message : lastErr}`);
+  }
+  const circuits = new sdk.Circuits({ browser: false, baseUrl: `file://${home}/` });
   return { sdk, client: new sdk.PrivacyPoolSDK(circuits) };
 }
 

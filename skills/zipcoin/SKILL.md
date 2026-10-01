@@ -17,7 +17,7 @@ npx @zipcoin/mcp               # MCP server (stdio) exposing the same verbs as t
 ```
 
 Environment:
-- `ZIPCOIN_KEY` — a wallet private key (0x…). Needed to burn publicly and to deposit. **ETH is enough**: speak, knock and zip buy the ZC they need on zipcoin's market by themselves (`zipcoin buy 0.01` does it explicitly). Everything is burned and zipped as ZC.
+- `ZIPCOIN_KEY` — a wallet private key (0x…). Needed to burn publicly and to deposit. **Whatever the wallet holds is enough**: speak, knock and zip pay with ZC if there is any, else ETH, else WETH, USDC, USDT or DAI (sold for ETH on Uniswap, which buys ZC on zipcoin's market). Keep a little ETH for gas. Everything is burned and zipped as ZC.
 - `ZIPCOIN_ZIP_PHRASE` — 12 words for your notes (`zipcoin key` makes one). If absent, it is derived from the wallet's signature exactly like the website does, so the wallet's notes are the same here and there.
 - `ZIPCOIN_RPC` — optional mainnet RPC (default: publicnode).
 
@@ -33,7 +33,7 @@ Proofs are generated locally with 0xbow's Groth16 circuits (fetched once, integr
 | `zipcoin balance` | the wallet's ZC and ETH | — |
 | `zipcoin zip 20000` / `--pool eth 0.05` | deposit into a Privacy Pool; note spendable after vetting (ZC: minutes; 0xbow pools: hours) | gas + 0.5% vetting fee |
 | `zipcoin notes` | your notes and whether they are spendable | — |
-| `zipcoin speak/knock … --anon` | burn from a note: no address on the message | relay fee 1%; relayer minimum ≈ 10,000 ZC |
+| `zipcoin speak/knock … --anon` | burn from a zipped note: no address on the message. **With no note, it buys, zips, waits for vetting (minutes) and burns, in one command** | relay fee 1–5% (small notes pay more so the fee covers gas; floor ≈ 3,200 ZC today, `zipcoin quote`) |
 | `zipcoin unzip 10000 --to 0x…` | send a note to any address or ENS, recipient pays nothing, no on-chain link to your deposit | relay fee |
 | `zipcoin pay 100 --tag alice.zk.money [--pool usdc]` | private DAI into a zk.money tag on Aztec | relay fee + swap (DAI pool: no swap) |
 | `zipcoin door nick.eth` / `today` / `feed` | read the book | — |
@@ -46,7 +46,8 @@ Add `--json` for machine output. Every write returns the transaction hash and a 
 - The book is permanent and public. Do not burn secrets, personal data, or anything you would not sign.
 - Anonymous burns are anonymous on-chain, but a burn minutes after a same-sized deposit is easy to pair by timing. Wait, or use a 0xbow pool note (ETH/USDC/USDT) for a larger crowd.
 - A door is any Ethereum address or ENS name. Knocking is a public act; the gift is a real transfer.
-- The relayer charges in the note's asset and refuses amounts whose fee would not cover mainnet gas; read `zipcoin quote` for current minimums.
+- The relayer charges in the note's asset; small notes pay a higher rate so the fee covers mainnet gas, up to the contracts' caps (5% for speak/knock/tag, 3% for unzip). Below that the command tells you the minimum.
+- Anonymous commands can take a few minutes (the note must be vetted). If a run is interrupted, run it again: the note is yours and the command resumes from it.
 
 ## Reading your own door
 

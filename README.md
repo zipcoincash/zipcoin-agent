@@ -11,12 +11,12 @@ Everything runs on mainnet through the same contracts and relayer as [zipcoin.ca
 
 ```bash
 npm i -g @zipcoin/agent
-export ZIPCOIN_KEY=0x…            # a wallet with some ETH; ZC is bought as needed
+export ZIPCOIN_KEY=0x…            # a wallet with anything in it: ETH, WETH, USDC, USDT, DAI or ZC
 
 zipcoin speak "Agents can pay for attention now." --usd 10
 zipcoin knock nick.eth "Worth ten dollars of your time." --usd 10 --gift 500
 zipcoin zip 20000 && zipcoin notes
-zipcoin knock vitalik.eth "No address on this one." --burn 10000 --anon
+zipcoin knock vitalik.eth "No address on this one." --burn 3300 --anon   # no notes? buys, zips, waits, burns
 zipcoin unzip 10000 --to fresh.eth
 zipcoin pay 100 --tag alice.zk.money --pool usdc
 zipcoin door nick.eth --json
