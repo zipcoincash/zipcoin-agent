@@ -5,7 +5,7 @@ import { normalize } from "viem/ens";
 
 import { broadcasterAbi, doorstepAbi, entrypointAbi, erc20Abi } from "./abi.js";
 import { encodeDoorSpeech, encodePayment, encodeRelayData, speechParams } from "./codec.js";
-import { ADDR, API, MAX_MESSAGE_BYTES, MAX_TARGET_BYTES, MIN_BURN, MIN_BURN_OF_GIFT_BPS, POOLS, RPC, STOCKEREUM, TOKENS, UNISWAP, type Holding, type PoolId } from "./config.js";
+import { ADDR, API, MAX_MESSAGE_BYTES, MAX_TARGET_BYTES, MIN_BURN, MIN_BURN_OF_GIFT_BPS, POOLS, RPC, STOCKEREUM, TOKENS, UNISWAP, ZKAPI, type Holding, type PoolId } from "./config.js";
 import { hashPrecommitment, type PoolStateJson } from "./tree.js";
 import { depositSecrets, isApproved, masterKeys, mnemonicFromSignature, proveSpend, recoverNotes, ZIP_MESSAGE, type MasterKeys, type Note } from "./zip.js";
 import { encodeAbiParameters } from "viem";
@@ -35,7 +35,7 @@ const zcFirst = BigInt(ADDR.zc) < BigInt(STOCKEREUM.weth);
 const POOL_KEY = { currency0: zcFirst ? ADDR.zc : STOCKEREUM.weth, currency1: zcFirst ? STOCKEREUM.weth : ADDR.zc, fee: 0, tickSpacing: 200, hooks: STOCKEREUM.hook } as const;
 const SLIPPAGE_BPS = 300n;
 /** The contracts' relay fee caps: Broadcaster, Doorstep and Teller 5%; the Entrypoint's ZC config 3%. */
-const ZC_FEE_CAP: Record<"unzip" | "speak" | "door" | "tag", bigint> = { unzip: 300n, speak: 500n, door: 500n, tag: 500n };
+const ZC_FEE_CAP: Record<"unzip" | "speak" | "door" | "tag" | "change", bigint> = { unzip: 300n, speak: 500n, door: 500n, tag: 500n, change: 500n };
 const swapAbi = parseAbi([
   "function exactInputSingle((address tokenIn, address tokenOut, uint24 fee, address recipient, uint256 amountIn, uint256 amountOutMinimum, uint160 sqrtPriceLimitX96) params) payable returns (uint256 amountOut)",
   "function unwrapWETH9(uint256 amountMinimum, address recipient) payable",
@@ -46,6 +46,7 @@ const wethAbi = parseAbi(["function withdraw(uint256 wad)"]);
 /** SwapRouter02 understands this recipient as "keep it in the router for the next call of the multicall". */
 const ROUTER_SELF = "0x0000000000000000000000000000000000000002" as Address;
 export type Quote = Quote_;
+export { ZKAPI };
 const wei = (v: bigint, d = 18) => formatUnits(v, d);
 
 export class Zipcoin {
@@ -336,7 +337,7 @@ export class Zipcoin {
    * Relay fee rate for a ZC note: the base rate (1%), or more when the note is small, so the fee still covers mainnet gas;
    * never above the pools' 10% cap. Returns the rate, or throws when even 10% would not cover the gas.
    */
-  private zcFee(q: Quote, kind: "unzip" | "speak" | "door" | "tag", amount: bigint) {
+  private zcFee(q: Quote, kind: "unzip" | "speak" | "door" | "tag" | "change", amount: bigint) {
     const base = BigInt(q.relayFeeBPS);
     const cost = BigInt(q.zcCost?.[kind] ?? "0");
     if (cost === 0n) {
@@ -352,7 +353,7 @@ export class Zipcoin {
     return out;
   }
   /** The smallest ZC amount the relayer takes for a kind right now (the contract's fee cap must still cover the gas). */
-  minAnon(q: Quote, kind: "unzip" | "speak" | "door" | "tag") {
+  minAnon(q: Quote, kind: "unzip" | "speak" | "door" | "tag" | "change") {
     const cost = BigInt(q.zcCost?.[kind] ?? "0");
     if (cost === 0n) return BigInt(q[kind === "unzip" ? "minWithdraw" : kind === "speak" ? "minSpeak" : kind === "door" ? "minDoor" : "minTag"]);
     const m = (cost * 110n * 10_000n * 102n) / (100n * ZC_FEE_CAP[kind] * 100n);
@@ -390,6 +391,73 @@ export class Zipcoin {
     const proof = await proveSpend(keys, note, amount, w, P.scope, await this.state(pool));
     const hash = await this.relay(pool === "zc" ? "unzip" : `unzip-${pool}`, w, proof);
     return { tx: hash, to: recipient, received: amount - (amount * bps) / 10_000n, feeBps: bps };
+  }
+
+  /** Deliver a ZC note as ETH to any address (ZipChanger): sold on zipcoin's market, unwrapped, sent. Fund a zkAPI client's address with it. */
+  async change(amount: bigint, to: string, slippageBps = 300n) {
+    if (ADDR.changer === "0x0000000000000000000000000000000000000000") throw new Error("ZipChanger is not deployed yet (set ZIPCOIN_CHANGER)");
+    const [keys, q, notes, recipient] = await Promise.all([this.zipKeys(), this.quote(), this.notes("zc"), this.resolve(to)]);
+    if (!q.online || !q.feeRecipient) throw new Error("relayer offline");
+    const note = this.pickNote(notes, amount);
+    const bps = this.zcFee(q, "change", amount);
+    const sold = amount - (amount * bps) / 10_000n;
+    const est = await this.get<{ eth: string }>(`/api/pay-quote?zcToEth=${sold}`);
+    const minOut = (BigInt(est.eth) * (10_000n - slippageBps)) / 10_000n;
+    if (minOut === 0n) throw new Error("no ETH quote for that amount");
+    const deadline = BigInt(Math.floor(Date.now() / 1000) + 1800);
+    const w = { processooor: ADDR.changer, data: encodePayment(recipient, minOut, deadline, q.feeRecipient, bps) };
+    const proof = await proveSpend(keys, note, amount, w, POOLS.zc.scope, await this.state("zc"));
+    const hash = await this.relay("change", w, proof);
+    return { tx: hash, to: recipient, ethEstimate: BigInt(est.eth), ethMin: minOut, feeBps: bps };
+  }
+
+  /**
+   * Fund a zkAPI client (private AI credits) from a note, without linking the client's address to you. The client (zkapi-clientd
+   * or OA Chat) deposits into the vault itself with its own secret; this only delivers ETH to its funding address.
+   * `to` defaults to the local zkapi-clientd's funding address, read from its loopback API when its config is available.
+   * Experimental: zkAPI notes expire after 30 days, the vault owner can pause it, and the vault deposit itself costs ~6.7M gas.
+   */
+  async aiFund(amountEth: bigint, opts: { to?: string; pool?: "eth" | "zc"; onProgress?: (s: string) => void } = {}) {
+    const say = opts.onProgress ?? (() => {});
+    const to = opts.to ?? (await this.zkapiFundingAddress());
+    if (!to) throw new Error("no zkAPI funding address: pass --to <address> (zkapi-clientd shows it under `zkapi-clientd config`)");
+    const pool = opts.pool ?? "eth";
+    if (pool === "eth") {
+      say(`unzipping ${wei(amountEth)} ETH from 0xbow's pool to the client's funding address ${to}`);
+      const r = await this.unzip(amountEth, to, "eth");
+      return { ...r, kind: "unzip-eth" as const, funding: to };
+    }
+    // ZC note: how much ZC sells for that much ETH (plus the relay fee), then change it.
+    const q = await this.quote();
+    const probe = 10n ** 21n;
+    const est = await this.get<{ eth: string }>(`/api/pay-quote?zcToEth=${probe}`);
+    if (BigInt(est.eth) === 0n) throw new Error("no quote");
+    let zc = (probe * amountEth * 104n) / (BigInt(est.eth) * 100n);
+    // Never below what the relayer can carry at the fee cap; the client simply gets a little more ETH.
+    const floor = this.minAnon(q, "change");
+    if (zc < floor) zc = floor;
+    const bps = this.zcFee(q, "change", zc);
+    zc = (zc * 10_000n) / (10_000n - bps) + 1n;
+    say(`changing about ${wei(zc)} ZC into ETH for the client's funding address ${to}`);
+    const r = await this.change(zc, to);
+    return { ...r, kind: "change" as const, funding: to };
+  }
+
+  /** The local zkapi-clientd's funding address, if the daemon is running here and its config is readable. Loopback only. */
+  async zkapiFundingAddress(): Promise<string | null> {
+    try {
+      const [fs, path, os] = await Promise.all([import("node:fs"), import("node:path"), import("node:os")]);
+      const dir = process.platform === "darwin" ? path.join(os.homedir(), "Library", "Application Support") : process.platform === "win32" ? (process.env.APPDATA ?? "") : (process.env.XDG_CONFIG_HOME ?? path.join(os.homedir(), ".config"));
+      const cfg = JSON.parse(fs.readFileSync(path.join(dir, "zkapi-clientd", "config.json"), "utf8")) as { listen?: string; api_key?: string; management_token?: string };
+      const listen = cfg.listen ?? ZKAPI.clientListen;
+      if (!/^(127\.0\.0\.1|localhost):\d+$/.test(listen)) return null;
+      const r = await fetch(`http://${listen}/n/address`, { headers: { authorization: `Bearer ${cfg.api_key ?? ""}`, "X-OA-Management-Token": cfg.management_token ?? "" }, signal: AbortSignal.timeout(5000) });
+      if (!r.ok) return null;
+      const j = (await r.json()) as { address?: string; chain_id?: number };
+      return j.address && isAddress(j.address) && (j.chain_id ?? 1) === 1 ? j.address : null;
+    } catch {
+      return null;
+    }
   }
 
   /** Pay a zk.money tag (name.zk.money) in DAI from a note. The tag's fresh deposit address is resolved through zk.money's ENS resolver. */

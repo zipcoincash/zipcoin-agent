@@ -57,4 +57,13 @@ server.registerTool("zipcoin_unzip", { description: "Spend a note to any address
 
 server.registerTool("zipcoin_pay_tag", { description: "Pay a zk.money tag (name.zk.money) from a note: the note becomes private DAI in the tag owner's Aztec balance. 1 to 2,400 DAI per payment.", inputSchema: { amount: z.string(), tag: z.string(), pool } }, async ({ amount, tag, pool: p }) => text(await zip.payTag(units(amount, p), tag, p)));
 
+server.registerTool(
+  "zipcoin_ai_fund",
+  {
+    description: "EXPERIMENTAL. Works with zkAPI (private AI credits by the Open Anonymity Project): deliver ETH from a note to a zkAPI client's funding address so the address that buys credits has no history. The client deposits into zkAPI's vault itself; its secret never leaves the machine. zkAPI notes expire after 30 days, the vault owner can pause it, and the vault deposit costs ~6.7M gas: keep amounts small. Address: a local zkapi-clientd's if running here, else pass `to`.",
+    inputSchema: { amountEth: z.string().describe("ETH the client should receive, e.g. '0.02'"), to: z.string().optional(), pool: z.enum(["eth", "zc"]).default("eth").describe("spend an ETH note (0xbow pool) or a ZC note (sold for ETH)") },
+  },
+  async ({ amountEth, to, pool: p }) => text(await zip.aiFund(units(amountEth, "eth"), { to, pool: p })),
+);
+
 await server.connect(new StdioServerTransport());

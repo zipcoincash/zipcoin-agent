@@ -112,6 +112,15 @@ try {
       out(json ? r : `paid ${tag}: about ${fmt(r.daiEstimate)} DAI (at least ${fmt(r.daiMin)})\n${r.tx}`);
       break;
     }
+    case "ai": {
+      // zipcoin ai fund <eth> [--to 0x…] [--pool eth|zc]
+      if (rest[0] !== "fund") die("usage: zipcoin ai fund <eth> [--to <zkapi funding address>] [--pool eth|zc]");
+      const amount = amt(rest[1], 18);
+      console.error("… experimental: works with zkAPI (private AI credits). Notes there expire after 30 days, the vault owner can pause it, and the vault deposit costs ~6.7M gas. Keep amounts small.");
+      const r = await z.aiFund(amount, { to: str("to"), pool: (str("pool") as "eth" | "zc" | undefined) ?? "eth", onProgress: (m) => console.error(`… ${m}`) });
+      out(json ? r : `funded the zkAPI client address ${r.funding} with about ${fmt("ethEstimate" in r ? r.ethEstimate : r.received)} ETH\n${r.tx}\nnow let zkapi-clientd deposit: it detects the balance and asks you to confirm.`);
+      break;
+    }
     case "door": {
       const who = rest[0] ?? die("door required");
       const rows = await z.door(who);
@@ -160,6 +169,7 @@ try {
   notes [--pool …]
   unzip <amount> --to <address|ens> [--pool …]
   pay <amount> --tag <name>.zk.money [--pool …]
+  ai fund <eth> [--to <zkapi funding address>] [--pool eth|zc]   experimental: fund a zkAPI client privately (works with zkAPI)
   door <ens|address> · today · feed · price · quote · key · whoami     (--json for machines)
 
 env: ZIPCOIN_KEY, ZIPCOIN_ZIP_PHRASE, ZIPCOIN_RPC, ZIPCOIN_API

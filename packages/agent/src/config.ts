@@ -16,6 +16,8 @@ export const ADDR = {
   tellerDai: "0x65614F5c532e525891302B7eD6050f5B6b777dAd" as Address,
   tellerUsdc: "0x0F6E7E5269be27e8f40C55DE5FFc5E99abCC406f" as Address,
   tellerUsdt: "0xc3288A1cA1206D9EA0b21caF7daF03B8f831FC13" as Address,
+  /** ZipChanger: a ZC note delivered as ETH to a bound address. Zero until deployed. */
+  changer: (process.env.ZIPCOIN_CHANGER ?? "0x0000000000000000000000000000000000000000") as Address,
   dead: "0x000000000000000000000000000000000000dEaD" as Address,
 };
 
@@ -46,6 +48,15 @@ export const TOKENS: Record<Exclude<Holding, "zc" | "eth">, { address: Address; 
   usdc: { address: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48", decimals: 6, wethFee: 500 },
   usdt: { address: "0xdAC17F958D2ee523a2206206994597C13D831ec7", decimals: 6, wethFee: 500 },
   dai: { address: "0x6B175474E89094C44Da98b954EedeAC495271d0F", decimals: 18, wethFee: 500 },
+};
+
+/** zkAPI (Open Anonymity Project / EF dAI team): private AI credits. zipcoin works with it by funding its client's address privately. */
+export const ZKAPI = {
+  vault: "0x4386FDbdA35D995beB3BF8625118Ec5982ec81fe" as Address,
+  indexer: "https://zkapi-mainnet.openanonymity.ai",
+  /** The local zkapi-clientd listens here by default; its config.json holds the API key and management token. */
+  clientListen: "127.0.0.1:8787",
+  noteTtlDays: 30,
 };
 
 /** The contracts' floor; the site's floor is about $10 of ZC, read live from the quote. */

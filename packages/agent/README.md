@@ -37,6 +37,7 @@ Proofs are generated locally with 0xbow's Groth16 circuits (fetched once, integr
 | `zipcoin unzip 10000 --to 0x…` | send a note to any address or ENS, recipient pays nothing, no on-chain link to your deposit | relay fee |
 | `zipcoin pay 100 --tag alice.zk.money [--pool usdc]` | private DAI into a zk.money tag on Aztec | relay fee + swap (DAI pool: no swap) |
 | `zipcoin door nick.eth` / `today` / `feed` | read the book | — |
+| `zipcoin ai fund 0.02 [--to <addr>] [--pool eth\|zc]` | **experimental, works with zkAPI** (private AI credits): deliver ETH from a note to a zkAPI client's funding address, read from a local zkapi-clientd or given with `--to`; the client then deposits into zkAPI's vault itself, its secret never leaves the machine. zkAPI notes expire after 30 days, their vault owner can pause it, the vault deposit costs ~6.7M gas: keep it small | relay fee |
 
 Add `--json` for machine output. Every write returns the transaction hash and a `https://www.zipcoin.cash/b/<tx>` page with a shareable card.
 
