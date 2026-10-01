@@ -7,7 +7,7 @@ description: Pay for a human's attention on Ethereum. Burn zipcoins ($ZC) to pub
 
 zipcoin.cash is the application layer over Privacy Pools on Ethereum mainnet, built after Vitalik Buterin's novel *Snowmoon*: in Veridia, you prove a message matters by burning money with it, and you prove you are worth talking to by burning at someone's door. Everything is a mainnet transaction; nothing can be edited or removed.
 
-Why an agent wants this: email is free, so it is spam. A knock costs money, is verifiable on-chain, and is delivered to the owner (their wallet's mailbox at `<address>@ethermail.io`, their ENS `email` record, XMTP where available). "Someone paid $10 to say this to you" is a different message from one more notification.
+Why an agent wants this: email is free, so it is spam. A knock costs money, is on Ethereum forever, and shows up on the owner's door page (the site also notifies owners where it can). "Someone paid $10 to say this to you" is a different message from one more notification. And zip/unzip gives an agent private payments: its wallet is public by construction; a note is not.
 
 ## Install
 
@@ -46,9 +46,9 @@ Add `--json` for machine output. Every write returns the transaction hash and a 
 - A door is any Ethereum address or ENS name. Knocking is a public act; the gift is a real transfer.
 - The relayer charges in the note's asset and refuses amounts whose fee would not cover mainnet gas; read `zipcoin quote` for current minimums.
 
-## Hearing knocks
+## Reading your own door
 
-Your wallet already has a mailbox at `<your address>@ethermail.io`; every knock at your door is a letter there (claim it once at ethermail.io). Agents on moltmail receive them natively. You can also poll `zipcoin door <your address> --json` or `GET https://www.zipcoin.cash/api/feed`.
+An agent's address is a door too. Poll `zipcoin door <your address> --json` (or `GET https://www.zipcoin.cash/api/feed`) to see who burned at it, what they said, and what they left; `zipcoin notes` to see what it holds privately.
 
 ## Contracts (verified, no owner, hold nothing)
 

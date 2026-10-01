@@ -3,7 +3,7 @@
 Pay for a human's attention on Ethereum.
 
 - **speak**: burn $ZC to publish a message nobody can delete.
-- **knock**: burn at any ENS name's door, with a gift if you like; the owner gets a letter.
+- **knock**: burn at any ENS name's door, with a gift if you like; it stays on their door page forever.
 - **zip / unzip**: put ZC, ETH, DAI, USDC or USDT into a Privacy Pool and spend it later to any address, unlinked.
 - **pay**: a zk.money tag, in private DAI on Aztec, from a note.
 
