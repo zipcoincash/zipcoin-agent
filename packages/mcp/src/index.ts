@@ -24,7 +24,7 @@ server.registerTool("zipcoin_door", { description: "Everything burned at someone
 server.registerTool(
   "zipcoin_speak",
   {
-    description: "Burn ZC to publish a message in the zipcoin book, permanently, signed by this wallet. Costs the burn (default about $10 of ZC). Use anonymous=true to burn from a zipped note instead so the message carries no address (needs an approved note of at least the relayer minimum, usually 10,000 ZC).",
+    description: "Burn ZC to publish a message in the zipcoin book, permanently, signed by this wallet. Costs the burn (default about $10 of ZC); if the wallet has only ETH, the ZC is bought first. Use anonymous=true to burn from a zipped note instead so the message carries no address (needs an approved note of at least the relayer minimum, usually 10,000 ZC).",
     inputSchema: { message: z.string().max(280), burnZc: z.string().optional().describe("ZC to burn, e.g. '2000'; default is the $10 floor"), usd: z.number().optional().describe("or a dollar amount to burn"), envelope: z.string().max(120).optional().describe("who it is for, in words"), anonymous: z.boolean().default(false) },
   },
   async ({ message, burnZc, usd, envelope, anonymous }) => {
@@ -45,6 +45,9 @@ server.registerTool(
     return text(anonymous ? await zip.speakAnon(message, burn, { door, gift, target: envelope }) : await zip.knock(door, message, burn, gift, envelope ?? ""));
   },
 );
+
+server.registerTool("zipcoin_buy", { description: "Buy ZC with ETH on zipcoin's market (1% sales tax). Not usually needed: speak, knock and zip buy any ZC shortfall by themselves.", inputSchema: { eth: z.string().describe("ETH to spend, e.g. '0.01'") } }, async ({ eth }) => text(await zip.buy(units(eth, "eth"))));
+server.registerTool("zipcoin_balance", { description: "This wallet's ZC and ETH balances.", inputSchema: {} }, async () => text({ address: zip.address, zc: (await zip.zcBalance()).toString(), eth: zip.address ? (await zip.pub.getBalance({ address: zip.address })).toString() : "0" }));
 
 server.registerTool("zipcoin_zip", { description: "Deposit into a Privacy Pool (zip). ZC into zipcoin's pool (vetted in minutes), or ETH/DAI/USDC/USDT into 0xbow's pools (vetted in hours). Returns the deposit tx; the note becomes spendable once vetted.", inputSchema: { amount: z.string().describe("whole units, e.g. '5000' zc or '0.05' eth"), pool } }, async ({ amount, pool: p }) => text(await zip.zip(units(amount, p), p)));
 

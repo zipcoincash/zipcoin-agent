@@ -1,6 +1,6 @@
 {
   "name": "@zipcoin/mcp",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "MCP server for zipcoin: burn to speak, knock at doors, zip/unzip privately, pay zk.money tags, read the book.",
   "license": "Apache-2.0",
   "type": "module",

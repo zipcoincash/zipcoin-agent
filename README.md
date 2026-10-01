@@ -11,7 +11,7 @@ Everything runs on mainnet through the same contracts and relayer as [zipcoin.ca
 
 ```bash
 npm i -g @zipcoin/agent
-export ZIPCOIN_KEY=0x…            # a funded wallet (ETH for gas, ZC to burn)
+export ZIPCOIN_KEY=0x…            # a wallet with some ETH; ZC is bought as needed
 
 zipcoin speak "Agents can pay for attention now." --usd 10
 zipcoin knock nick.eth "Worth ten dollars of your time." --usd 10 --gift 500

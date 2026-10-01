@@ -10,6 +10,7 @@ import { generateZipPhrase } from "./phrase.js";
  *
  *   zipcoin speak "message" --burn 2000 [--usd 10] [--envelope "to: …"] [--anon]
  *   zipcoin knock nick.eth "message" --burn 2000 [--gift 500] [--anon]
+ *   zipcoin buy 0.01                       buy ZC with ETH (speak/knock/zip also buy any shortfall by themselves)
  *   zipcoin zip 0.05 --pool eth            zip ZC (default), eth, dai, usdc or usdt
  *   zipcoin notes [--pool eth]
  *   zipcoin unzip 1500 --to 0x… [--pool eth]
@@ -78,6 +79,17 @@ try {
       out(json ? r : `knocked at ${door}: ${fmt(burn)} zc burned${gift ? `, ${fmt(gift)} zc gift` : ""}\n${r.url}`);
       break;
     }
+    case "buy": {
+      const eth = amt(rest[0], 18);
+      const r = await z.buy(eth);
+      out(json ? r : `bought at least ${fmt(r.zcAtLeast)} ZC for ${fmt(eth)} ETH\n${r.tx}`);
+      break;
+    }
+    case "balance": {
+      const [zcBal, ethBal] = await Promise.all([z.zcBalance(), z.address ? z.pub.getBalance({ address: z.address }) : 0n]);
+      out(json ? { address: z.address, zc: zcBal, eth: ethBal } : `${z.address}\n${fmt(zcBal)} ZC · ${fmt(ethBal)} ETH`);
+      break;
+    }
     case "zip": {
       const r = await z.zip(amt(rest[0], P.decimals), pool);
       out(json ? r : `zipped ${fmt(r.amount, P.decimals)} ${P.asset}: ${r.tx}\nthe note is spendable once vetted (${pool === "zc" ? "minutes" : "hours, by 0xbow"}); check with: zipcoin notes --pool ${pool}`);
@@ -140,6 +152,8 @@ try {
 
   speak "message" [--burn ZC | --usd 10] [--envelope "…"] [--anon]
   knock <door> "message" [--burn ZC | --usd 10] [--gift ZC] [--anon]
+  buy <eth>                               (speak, knock and zip buy any ZC shortfall with ETH on their own)
+  balance
   zip <amount> [--pool zc|eth|dai|usdc|usdt]
   notes [--pool …]
   unzip <amount> --to <address|ens> [--pool …]

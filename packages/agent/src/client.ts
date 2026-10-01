@@ -1,11 +1,11 @@
-import { createPublicClient, createWalletClient, encodeFunctionData, formatUnits, getAddress, http, isAddress, parseUnits, type Address, type Hex, type PublicClient } from "viem";
+import { createPublicClient, createWalletClient, encodeFunctionData, formatUnits, getAddress, http, isAddress, parseAbi, parseUnits, type Address, type Hex, type PublicClient } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { mainnet } from "viem/chains";
 import { normalize } from "viem/ens";
 
 import { broadcasterAbi, doorstepAbi, entrypointAbi, erc20Abi } from "./abi.js";
 import { encodeDoorSpeech, encodePayment, encodeRelayData, speechParams } from "./codec.js";
-import { ADDR, API, MAX_MESSAGE_BYTES, MAX_TARGET_BYTES, MIN_BURN, MIN_BURN_OF_GIFT_BPS, POOLS, RPC, type PoolId } from "./config.js";
+import { ADDR, API, MAX_MESSAGE_BYTES, MAX_TARGET_BYTES, MIN_BURN, MIN_BURN_OF_GIFT_BPS, POOLS, RPC, STOCKEREUM, type PoolId } from "./config.js";
 import { hashPrecommitment, type PoolStateJson } from "./tree.js";
 import { depositSecrets, isApproved, masterKeys, mnemonicFromSignature, proveSpend, recoverNotes, ZIP_MESSAGE, type MasterKeys, type Note } from "./zip.js";
 import { encodeAbiParameters } from "viem";
@@ -27,6 +27,13 @@ export type Speech = { tx: string; block: number; time: number; speaker: string 
 export type Opts = { key?: Hex; zipPhrase?: string; rpc?: string; api?: string };
 
 const bytes = (s: string) => new TextEncoder().encode(s).length;
+const routerAbi = parseAbi([
+  "struct PoolKey { address currency0; address currency1; uint24 fee; int24 tickSpacing; address hooks; }",
+  "function buyWethPairWithEth(PoolKey key, uint256 minOut, bytes hookData) payable returns (uint256 amountOut)",
+]);
+const zcFirst = BigInt(ADDR.zc) < BigInt(STOCKEREUM.weth);
+const POOL_KEY = { currency0: zcFirst ? ADDR.zc : STOCKEREUM.weth, currency1: zcFirst ? STOCKEREUM.weth : ADDR.zc, fee: 0, tickSpacing: 200, hooks: STOCKEREUM.hook } as const;
+const SLIPPAGE_BPS = 300n;
 const wei = (v: bigint, d = 18) => formatUnits(v, d);
 
 export class Zipcoin {
@@ -118,13 +125,53 @@ export class Zipcoin {
     if (gift > 0n && burn * 10_000n < gift * MIN_BURN_OF_GIFT_BPS) throw new Error("the burn must be at least a tenth of the gift");
   }
 
+  /** ZC the wallet holds. */
+  async zcBalance() {
+    if (!this.account) return 0n;
+    return this.pub.readContract({ address: ADDR.zc, abi: erc20Abi, functionName: "balanceOf", args: [this.account.address] });
+  }
+
+  /** How many ZC this much ETH buys right now, by simulating the trade (sales tax and price impact included). */
+  async quoteBuy(eth: bigint) {
+    const from = this.account?.address ?? "0x0000000000000000000000000000000000000001";
+    const { result } = await this.pub.simulateContract({ account: from, address: STOCKEREUM.router, abi: routerAbi, functionName: "buyWethPairWithEth", args: [POOL_KEY, 0n, "0x"], value: eth });
+    return result;
+  }
+
+  /** How much ETH buys at least this many ZC (a little over, for slippage). */
+  async ethForZc(zcWanted: bigint) {
+    const probe = 10n ** 16n;
+    const got = await this.quoteBuy(probe);
+    if (got === 0n) throw new Error("no quote");
+    // Linear estimate plus 4% headroom; the trade's minOut makes sure the ZC actually arrives.
+    return (probe * zcWanted * 104n) / (got * 100n) + 1n;
+  }
+
+  /** Buy ZC with ETH on zipcoin's own market. Everything here passes through ZC; this is how an agent that holds only ETH gets some. */
+  async buy(eth: bigint, minZc?: bigint) {
+    const w = this.wallet();
+    const quoted = await this.quoteBuy(eth);
+    const min = minZc ?? (quoted * (10_000n - SLIPPAGE_BPS)) / 10_000n;
+    const h = await w.writeContract({ address: STOCKEREUM.router, abi: routerAbi, functionName: "buyWethPairWithEth", args: [POOL_KEY, min, "0x"], value: eth });
+    const r = await this.pub.waitForTransactionReceipt({ hash: h });
+    if (r.status !== "success") throw new Error("buy reverted");
+    return { tx: h, eth, zcAtLeast: min };
+  }
+
+  /** Makes sure the wallet holds `amount` ZC, buying the shortfall with ETH when it can; then approves the spender. */
   private async approveZc(spender: Address, amount: bigint) {
     const w = this.wallet();
     const owner = this.account!.address;
+    const bal = await this.zcBalance();
+    if (bal < amount) {
+      const short = amount - bal;
+      const eth = await this.ethForZc(short);
+      const ethBal = await this.pub.getBalance({ address: owner });
+      if (ethBal < eth + 3n * 10n ** 15n) throw new Error(`not enough ZC (${wei(bal)}) and not enough ETH to buy ${wei(short)} more (needs about ${wei(eth)} ETH plus gas)`);
+      await this.buy(eth, short);
+    }
     const allowance = await this.pub.readContract({ address: ADDR.zc, abi: erc20Abi, functionName: "allowance", args: [owner, spender] });
     if (allowance >= amount) return;
-    const bal = await this.pub.readContract({ address: ADDR.zc, abi: erc20Abi, functionName: "balanceOf", args: [owner] });
-    if (bal < amount) throw new Error(`not enough ZC: have ${wei(bal)}, need ${wei(amount)}`);
     const h = await w.writeContract({ address: ADDR.zc, abi: erc20Abi, functionName: "approve", args: [spender, amount] });
     await this.pub.waitForTransactionReceipt({ hash: h });
   }
@@ -163,7 +210,8 @@ export class Zipcoin {
     const index = BigInt(mine.nextDepositIndex);
     const { nullifier, secret } = depositSecrets(keys, P.scope, index);
     const pre = hashPrecommitment(nullifier, secret);
-    if (P.token) {
+    if (pool === "zc") await this.approveZc(P.entrypoint, amount);
+    else if (P.token) {
       const owner = this.account!.address;
       const allowance = await this.pub.readContract({ address: P.token, abi: erc20Abi, functionName: "allowance", args: [owner, P.entrypoint] });
       if (allowance < amount) {

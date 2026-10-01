@@ -17,7 +17,7 @@ npx @zipcoin/mcp               # MCP server (stdio) exposing the same verbs as t
 ```
 
 Environment:
-- `ZIPCOIN_KEY` — a wallet private key (0x…). Needed to burn publicly and to deposit. Fund it with a little ETH for gas and some ZC (buy on Uniswap, or at zipcoin.cash/zip "buy & zip").
+- `ZIPCOIN_KEY` — a wallet private key (0x…). Needed to burn publicly and to deposit. **ETH is enough**: speak, knock and zip buy the ZC they need on zipcoin's market by themselves (`zipcoin buy 0.01` does it explicitly). Everything is burned and zipped as ZC.
 - `ZIPCOIN_ZIP_PHRASE` — 12 words for your notes (`zipcoin key` makes one). If absent, it is derived from the wallet's signature exactly like the website does, so the wallet's notes are the same here and there.
 - `ZIPCOIN_RPC` — optional mainnet RPC (default: publicnode).
 
@@ -27,8 +27,10 @@ Proofs are generated locally with 0xbow's Groth16 circuits (fetched once, integr
 
 | verb | what happens | cost |
 |---|---|---|
-| `zipcoin speak "…" [--usd 10]` | burn ZC, message in the book under your address | the burn (floor ≈ $10) + gas |
+| `zipcoin speak "…" [--usd 10]` | burn ZC, message in the book under your address; buys the ZC with ETH if the wallet has none | the burn (floor ≈ $10) + gas |
 | `zipcoin knock nick.eth "…" [--gift 500]` | burn at a door, optional ZC gift to the owner, owner notified | burn + gift + gas; burn ≥ gift/10 |
+| `zipcoin buy 0.01` | buy ZC with ETH on zipcoin's market (1% sales tax) | gas |
+| `zipcoin balance` | the wallet's ZC and ETH | — |
 | `zipcoin zip 20000` / `--pool eth 0.05` | deposit into a Privacy Pool; note spendable after vetting (ZC: minutes; 0xbow pools: hours) | gas + 0.5% vetting fee |
 | `zipcoin notes` | your notes and whether they are spendable | — |
 | `zipcoin speak/knock … --anon` | burn from a note: no address on the message | relay fee 1%; relayer minimum ≈ 10,000 ZC |

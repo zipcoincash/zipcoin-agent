@@ -31,6 +31,13 @@ export const POOLS: Record<PoolId, PoolInfo> = {
   usdt: { id: "usdt", asset: "USDT", decimals: 6, pool: "0xe859C0bD25f260BaEE534Fb52e307D3b64D24572", entrypoint: BOW, scope: 15021418340692283880916004685565940332387258944710606800522765380598358159605n, minDeposit: 25n * 10n ** 6n, token: "0xdAC17F958D2ee523a2206206994597C13D831ec7", teller: ADDR.tellerUsdt },
 };
 
+/** Stockereum's LaunchRouter buys $ZC with native ETH straight through the Uniswap v4 pool (1% sales tax, 0.7% to the treasury). */
+export const STOCKEREUM = {
+  router: "0xcdf832D2C11DA16055bb6C6145cF38EDD7233767" as Address,
+  hook: "0x322dcEc4958C14e021A9F1cD49DF11b9457968cC" as Address,
+  weth: "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2" as Address,
+};
+
 /** The contracts' floor; the site's floor is about $10 of ZC, read live from the quote. */
 export const MIN_BURN = 1000n * 10n ** 18n;
 /** Gift at a door needs a burn of at least a tenth of it. */
