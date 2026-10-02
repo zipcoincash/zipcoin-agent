@@ -37,7 +37,10 @@ Proofs are generated locally with 0xbow's Groth16 circuits (fetched once, integr
 | `zipcoin unzip 10000 --to 0x…` | send a note to any address or ENS, recipient pays nothing, no on-chain link to your deposit | relay fee |
 | `zipcoin pay 100 --tag alice.zk.money [--pool usdc]` | private DAI into a zk.money tag on Aztec | relay fee + swap (DAI pool: no swap) |
 | `zipcoin door nick.eth` / `today` / `feed` | read the book | — |
-| `zipcoin ai fund 0.02 [--to <addr>] [--pool eth\|zc]` | **experimental, works with zkAPI** (private AI credits): deliver ETH from a note to a zkAPI client's funding address, read from a local zkapi-clientd or given with `--to`; the client then deposits into zkAPI's vault itself, its secret never leaves the machine. zkAPI notes expire after 30 days, their vault owner can pause it, the vault deposit costs ~6.7M gas: keep it small | relay fee |
+| `zipcoin ai fund 0.02 [--to <addr>] [--pool eth\|zc]` | **experimental, works with zkAPI** (private AI): deliver ETH from a zipped note to a zkAPI funding address (this wallet by default), so the address that buys credits has no history | relay fee |
+| `zipcoin ai deposit 0.01` | this wallet deposits into zkAPI's vault (~6.7M gas, about $5 at 0.3 gwei) and keeps the private note on this machine (`~/.config/zipcoin/zkapi`, or `ZIPCOIN_AI_STATE`). One note at a time; credits expire after 30 days; the vault can be paused by its owner; keep it $20–50 | gas |
+| `zipcoin ai chat "prompt" [--model openai/gpt-4o-mini] [--system "…"]` | proves the note is funded, gets a 5-minute $1 key from Open Anonymity, streams the answer straight from the provider (OpenRouter). `--json` for machines. The key settles when it expires; the balance updates on the next command | model usage |
+| `zipcoin ai balance` · `ai close --to <addr> [--escape]` · `ai export` | the note's balance and expiry; cooperative close (now) or unilateral escape (24h window); where the state lives (back it up: it is the money) | close: gas |
 
 Add `--json` for machine output. Every write returns the transaction hash and a `https://www.zipcoin.cash/b/<tx>` page with a shareable card.
 

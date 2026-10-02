@@ -37,7 +37,10 @@ Proofs are generated locally with 0xbow's Groth16 circuits (fetched once, integr
 | `zipcoin unzip 10000 --to 0x…` | send a note to any address or ENS, recipient pays nothing, no on-chain link to your deposit | relay fee |
 | `zipcoin pay 100 --tag alice.zk.money [--pool usdc]` | private DAI into a zk.money tag on Aztec | relay fee + swap (DAI pool: no swap) |
 | `zipcoin door nick.eth` / `today` / `feed` | read the book | — |
-| `zipcoin ai fund 0.02 [--to <addr>] [--pool eth\|zc]` | **experimental, works with zkAPI** (private AI credits): deliver ETH from a note to a zkAPI client's funding address, read from a local zkapi-clientd or given with `--to`; the client then deposits into zkAPI's vault itself, its secret never leaves the machine. zkAPI notes expire after 30 days, their vault owner can pause it, the vault deposit costs ~6.7M gas: keep it small | relay fee |
+| `zipcoin ai fund 0.02 [--to <addr>] [--pool eth\|zc]` | **experimental, works with zkAPI** (private AI): deliver ETH from a zipped note to a zkAPI funding address (this wallet by default), so the address that buys credits has no history | relay fee |
+| `zipcoin ai deposit 0.01` | this wallet deposits into zkAPI's vault (~6.7M gas, about $5 at 0.3 gwei) and keeps the private note on this machine (`~/.config/zipcoin/zkapi`, or `ZIPCOIN_AI_STATE`). One note at a time; credits expire after 30 days; the vault can be paused by its owner; keep it $20–50 | gas |
+| `zipcoin ai chat "prompt" [--model openai/gpt-4o-mini] [--system "…"]` | proves the note is funded, gets a 5-minute $1 key from Open Anonymity, streams the answer straight from the provider (OpenRouter). `--json` for machines. The key settles when it expires; the balance updates on the next command | model usage |
+| `zipcoin ai balance` · `ai close --to <addr> [--escape]` · `ai export` | the note's balance and expiry; cooperative close (now) or unilateral escape (24h window); where the state lives (back it up: it is the money) | close: gas |
 
 Add `--json` for machine output. Every write returns the transaction hash and a `https://www.zipcoin.cash/b/<tx>` page with a shareable card.
 
@@ -57,3 +60,12 @@ An agent's address is a door too. Poll `zipcoin door <your address> --json` (or 
 ## Contracts (verified, no owner, hold nothing)
 
 ZC `0x4E67DB19044549fF420860834c91b45BaD298722` · Broadcaster `0x992550B536749125D63d5F9c19fea765232D6928` · Doorstep `0x1813A541FB107C5E9b46e9cbB04e67140bCE7730` · ZipTeller `0x555E8A0CEAD850Ac195BAf160Aead84d5C8826ff` · ZipTellerEth `0x7EAA5f0cb82232F7a673ef0fA74a2B2264b336F0` · ZipHearth `0x5D711e59DeEBfAFbC8223eBE9A8f4Df286Af0531` · ZipTellerStable DAI/USDC/USDT `0x65614F5c…77dAd` / `0x0F6E7E52…C406f` / `0xc3288A1c…1FC13` · ZipChanger `0x858f4156E3C8319CA4dF14d3b46e398E0EFf3295`. Source: github.com/zipcoincash/zipcoin. Docs: zipcoin.cash/docs.
+
+## Private AI from an agent (`zipcoin ai …`)
+
+The `ai` commands run zkAPI's own browser wallet SDK under Node (IndexedDB and localStorage become files in the state directory, the
+proof worker runs in a worker thread). The SDK is a pinned git dependency (`github:ethereum/zkapi#b826c16…`); installing needs git.
+Node 22 or newer. Flow: `zipcoin ai deposit 0.01` → `zipcoin ai chat "…"` → `zipcoin ai close --to 0x…` when done. For an address with
+no history, first `zipcoin ai fund 0.02` from a zipped note into a fresh wallet, then run the `ai` commands with that wallet's key.
+MCP: `zipcoin_ai_deposit`, `zipcoin_ai_chat`, `zipcoin_ai_balance`, `zipcoin_ai_close`. Works with zkAPI (Open Anonymity + EF dAI);
+experimental, unaudited, not a partnership.

@@ -66,4 +66,52 @@ server.registerTool(
   async ({ amountEth, to, pool: p }) => text(await zip.aiFund(units(amountEth, "eth"), { to, pool: p })),
 );
 
+/** The private AI wallet (zkAPI's SDK run under Node), opened once per process. One note per state directory. */
+const ai = async () => {
+  if (!zip.account) throw new Error("a wallet key is needed (ZIPCOIN_KEY): it signs the vault deposit and pays its gas");
+  const { openZkapi, DEFAULT_STATE_DIR } = await import("@zipcoin/agent");
+  return openZkapi(zip.account, zip.rpc, process.env.ZIPCOIN_AI_STATE ?? DEFAULT_STATE_DIR, () => {});
+};
+server.registerTool(
+  "zipcoin_ai_deposit",
+  {
+    description: "EXPERIMENTAL, works with zkAPI. Deposit ETH from this wallet into zkAPI's vault (~6.7M gas) and keep the private note on this machine (~/.config/zipcoin/zkapi). One note at a time; credits expire after 30 days; keep amounts small ($20–50).",
+    inputSchema: { eth: z.string().describe("ETH to deposit, e.g. '0.01'") },
+  },
+  async ({ eth }) => {
+    const { zkDeposit, stateSummary } = await import("@zipcoin/agent");
+    const w = await ai();
+    const tx = await zkDeposit(w, eth, zip.account!.address, () => {});
+    return text({ tx, ...stateSummary(w.snapshot(), await w.client.refreshEthUsdPrice().catch(() => null)) });
+  },
+);
+server.registerTool(
+  "zipcoin_ai_chat",
+  {
+    description: "EXPERIMENTAL, works with zkAPI. Ask a model privately: proves the zkAPI note is funded, gets a 5-minute capped key from Open Anonymity, sends the prompt straight to the provider (OpenRouter). Needs zipcoin_ai_deposit first. Returns the answer and token usage.",
+    inputSchema: { prompt: z.string(), model: z.string().default("openai/gpt-4o-mini"), system: z.string().optional() },
+  },
+  async ({ prompt, model, system }) => {
+    const { zkChat, stateSummary } = await import("@zipcoin/agent");
+    const w = await ai();
+    const r = await zkChat(w, [...(system ? [{ role: "system", content: system }] : []), { role: "user", content: prompt }], model, () => {}, () => {});
+    return text({ model, answer: r.text, usage: r.usage, note: stateSummary(w.snapshot(), null).note });
+  },
+);
+server.registerTool("zipcoin_ai_balance", { description: "The private AI note on this machine: balance, expiry, pending state.", inputSchema: {} }, async () => {
+  const { stateSummary } = await import("@zipcoin/agent");
+  const w = await ai();
+  return text(stateSummary(w.snapshot(), await w.client.refreshEthUsdPrice().catch(() => null)));
+});
+server.registerTool(
+  "zipcoin_ai_close",
+  { description: "Close the private AI note and send its balance to an address (cooperative close now, or unilateral escape with a 24h window).", inputSchema: { to: z.string(), escape: z.boolean().default(false) } },
+  async ({ to, escape }) => {
+    const { zkClose, stateSummary } = await import("@zipcoin/agent");
+    const w = await ai();
+    await zkClose(w, to, escape ? "escape" : "mutual", () => {});
+    return text(stateSummary(w.snapshot(), null));
+  },
+);
+
 await server.connect(new StdioServerTransport());

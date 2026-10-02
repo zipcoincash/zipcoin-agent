@@ -1,6 +1,6 @@
 {
   "name": "@zipcoin/agent",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "zipcoin for agents: burn to speak, knock at doors, zip and unzip privately, pay zk.money tags. SDK and CLI.",
   "license": "Apache-2.0",
   "type": "module",
@@ -20,16 +20,18 @@
     "README.md"
   ],
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "tsc -p tsconfig.json && cp src/zkapi/worker-boot.mjs dist/zkapi/ && cp src/zkapi/mainnet.json dist/zkapi/",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
     "@0xbow/privacy-pools-core-sdk": "1.5.0",
+    "@openanonymity/zkapi-browser-sdk": "github:ethereum/zkapi#b826c169b4831665822529f535f824265f50630b",
     "@scure/bip39": "^2.4.0",
     "@zk-kit/lean-imt": "2.2.5",
+    "fake-indexeddb": "6.0.0",
     "poseidon-lite": "^0.3.0",
     "viem": "^2.56.8"
   },

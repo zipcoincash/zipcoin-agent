@@ -113,12 +113,72 @@ try {
       break;
     }
     case "ai": {
-      // zipcoin ai fund <eth> [--to 0x…] [--pool eth|zc]
-      if (rest[0] !== "fund") die("usage: zipcoin ai fund <eth> [--to <zkapi funding address>] [--pool eth|zc]");
-      const amount = amt(rest[1], 18);
-      console.error("… experimental: works with zkAPI (private AI credits). Notes there expire after 30 days, the vault owner can pause it, and the vault deposit costs ~6.7M gas. Keep amounts small.");
-      const r = await z.aiFund(amount, { to: str("to"), pool: (str("pool") as "eth" | "zc" | undefined) ?? "eth", onProgress: (m) => console.error(`… ${m}`) });
-      out(json ? r : `funded the zkAPI client address ${r.funding} with about ${fmt("ethEstimate" in r ? r.ethEstimate : r.received)} ETH\n${r.tx}\nnow let zkapi-clientd deposit: it detects the balance and asks you to confirm.`);
+      const sub = rest[0];
+      const log = (m: string) => console.error(`… ${m}`);
+      if (sub === "fund") {
+        // zipcoin ai fund <eth> [--to 0x…] [--pool eth|zc]: ETH from a zipped note to a zkAPI funding address (yours or a client's)
+        const amount = amt(rest[1], 18);
+        console.error("… experimental: works with zkAPI (private AI credits). Notes there expire after 30 days, the vault owner can pause it, and the vault deposit costs ~6.7M gas. Keep amounts small.");
+        const r = await z.aiFund(amount, { to: str("to") ?? z.address ?? undefined, pool: (str("pool") as "eth" | "zc" | undefined) ?? "eth", onProgress: log });
+        out(json ? r : `funded ${r.funding} with about ${fmt("ethEstimate" in r ? r.ethEstimate : r.received)} ETH\n${r.tx}\nnext: zipcoin ai deposit <eth> (from this wallet) and zipcoin ai chat "…"`);
+        break;
+      }
+      // The zkAPI wallet itself, run under Node: one private note per state directory (ZIPCOIN_AI_STATE, default ~/.config/zipcoin/zkapi)
+      const { openZkapi, zkDeposit, zkChat, zkClose, stateSummary, backupFile, DEFAULT_STATE_DIR } = await import("./zkapi/wallet.js");
+      const account = z.account ?? die("a wallet key is needed (ZIPCOIN_KEY): it signs the vault deposit and pays its gas");
+      const stateDir = process.env.ZIPCOIN_AI_STATE ?? DEFAULT_STATE_DIR;
+      const ai = await openZkapi(account, z.rpc, stateDir, log);
+      const price = await ai.client.refreshEthUsdPrice().catch(() => null);
+      switch (sub) {
+        case "deposit": {
+          // zipcoin ai deposit <eth>: this wallet deposits into zkAPI's vault (~6.7M gas) and holds the note here
+          const eth = rest[1] ?? die("usage: zipcoin ai deposit <eth>");
+          const s0 = stateSummary(ai.snapshot(), price);
+          if (s0.note) die(`this state directory already holds note #${s0.note.id} (${s0.note.eth.toFixed(6)} ETH). One note at a time: spend it or close it first.`);
+          if (s0.pendingDeposit) {
+            log(`an earlier deposit is unfinished (${s0.pendingDeposit.phase}); recovering`);
+            const r = await ai.client.recoverBrowserDeposit(log);
+            if (r?.status !== "confirmed" && r?.status !== "slot_consumed" && r?.status !== "prepared") die(`deposit recovery: ${r?.status ?? "unknown"}; try again in a few minutes`);
+          }
+          const tx = await zkDeposit(ai, eth, account.address, log);
+          const s1 = stateSummary(ai.snapshot(), price);
+          out(json ? { tx, ...s1 } : `deposited ${eth} ETH into zkAPI's vault${tx ? `\n${tx}` : ""}\nnote #${s1.note?.id ?? "?"}: ${s1.note ? `${s1.note.eth.toFixed(6)} ETH${s1.note.usd ? ` (≈ $${s1.note.usd.toFixed(2)})` : ""}, expires ${s1.note.expires.slice(0, 10)}` : "pending"}\nstate: ${stateDir} (back it up: it is the money)`);
+          break;
+        }
+        case "chat": {
+          // zipcoin ai chat "<prompt>" [--model openai/gpt-4o-mini] [--system "…"]: proves the note, gets a 5-minute key, streams the answer
+          const prompt = rest.slice(1).join(" ") || die('usage: zipcoin ai chat "<prompt>" [--model id] [--system "…"]');
+          const model = str("model") ?? "openai/gpt-4o-mini";
+          if (!stateSummary(ai.snapshot(), price).note) die("no zkAPI note here yet: zipcoin ai deposit <eth> first");
+          const messages = [...(str("system") ? [{ role: "system", content: str("system")! }] : []), { role: "user", content: prompt }];
+          let text = "";
+          const r = await zkChat(ai, messages, model, (d) => { if (!json) process.stdout.write(d); text += d; }, log);
+          if (!json) process.stdout.write("\n");
+          const s1 = stateSummary(ai.snapshot(), price);
+          if (json) out({ model, text: r.text, usage: r.usage, note: s1.note });
+          else console.error(`… ${r.usage ? `${r.usage.prompt_tokens + r.usage.completion_tokens} tokens${r.usage.cost ? `, $${r.usage.cost.toFixed(5)}` : ""}` : "done"}; the key settles when it expires (≤5 min); balance updates on the next command`);
+          break;
+        }
+        case "balance": {
+          const s1 = stateSummary(ai.snapshot(), price);
+          out(json ? s1 : s1.note ? `note #${s1.note.id}: ${s1.note.eth.toFixed(6)} ETH${s1.note.usd ? ` (≈ $${s1.note.usd.toFixed(2)})` : ""}, expires ${s1.note.expires.slice(0, 10)}${s1.activeLease ? `\nkey live until ${new Date(s1.activeLease.expires_at * 1000).toISOString()}` : ""}${s1.pendingRequest ? "\na request is pending with zkAPI's server" : ""}` : `no zkAPI note in ${stateDir}${s1.pendingDeposit ? ` (a deposit is ${s1.pendingDeposit.phase}; run ai deposit again to recover)` : ""}`);
+          break;
+        }
+        case "close": {
+          // zipcoin ai close --to 0x… [--escape]: cooperative close (now) or unilateral escape (24h) of the whole note
+          const to = str("to") ?? die("usage: zipcoin ai close --to <address> [--escape]");
+          await zkClose(ai, to, flags.escape ? "escape" : "mutual", log);
+          out(json ? stateSummary(ai.snapshot(), price) : flags.escape ? `escape started to ${to}; finalize after the 24h challenge window with: zipcoin ai close --to ${to} --escape` : `closed; the balance went to ${to}`);
+          break;
+        }
+        case "export": {
+          const f = backupFile(stateDir);
+          out(json ? { stateDir, file: f } : f ? `the note lives in ${f} (plus localStorage.json). Copy the directory to back it up; whoever has it can spend the note.` : "nothing to export yet");
+          break;
+        }
+        default:
+          die('usage: zipcoin ai fund <eth> | deposit <eth> | chat "<prompt>" [--model id] | balance | close --to <addr> [--escape] | export');
+      }
       break;
     }
     case "door": {
@@ -169,7 +229,9 @@ try {
   notes [--pool …]
   unzip <amount> --to <address|ens> [--pool …]
   pay <amount> --tag <name>.zk.money [--pool …]
-  ai fund <eth> [--to <zkapi funding address>] [--pool eth|zc]   experimental: fund a zkAPI client privately (works with zkAPI)
+  ai deposit <eth> · ai chat "<prompt>" [--model id] · ai balance · ai close --to <addr> [--escape] · ai export
+      private AI (works with zkAPI, experimental): this wallet deposits into zkAPI's vault, then every chat proves the note and gets
+      a 5-minute key; prompts go straight to the model provider. ai fund <eth> [--to …] first sends ETH from a zipped note.
   door <ens|address> · today · feed · price · quote · key · whoami     (--json for machines)
 
 env: ZIPCOIN_KEY, ZIPCOIN_ZIP_PHRASE, ZIPCOIN_RPC, ZIPCOIN_API

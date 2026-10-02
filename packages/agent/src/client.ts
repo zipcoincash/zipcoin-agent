@@ -52,8 +52,8 @@ const wei = (v: bigint, d = 18) => formatUnits(v, d);
 export class Zipcoin {
   readonly api: string;
   readonly pub: PublicClient;
-  private readonly account: ReturnType<typeof privateKeyToAccount> | null;
-  private readonly rpc: string;
+  readonly account: ReturnType<typeof privateKeyToAccount> | null;
+  readonly rpc: string;
   private keys: MasterKeys | null = null;
   private readonly phrase: string | undefined;
 
