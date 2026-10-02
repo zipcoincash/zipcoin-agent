@@ -127,7 +127,6 @@ export async function installShims({ stateDir, deploymentServer, proxyPath = "/z
       this.w = new NodeWorker(boot, { workerData: { file } });
       this.w.on("message", (data) => this.dispatchEvent(Object.assign(new Event("message"), { data })));
       this.w.on("error", (err) => this.dispatchEvent(Object.assign(new Event("error"), { message: err?.message ?? String(err) })));
-      this.w.unref();
     }
     postMessage(m: unknown, transfer?: Transferable[]) { this.w.postMessage(m, transfer as never); }
     terminate() { return this.w.terminate(); }
