@@ -32,3 +32,9 @@ Skill file for agent frameworks: [`skills/zipcoin/SKILL.md`](skills/zipcoin/SKIL
 | [`packages/mcp`](packages/mcp) | `@zipcoin/mcp` — MCP server over stdio |
 
 Contracts and their source: [github.com/zipcoincash/zipcoin](https://github.com/zipcoincash/zipcoin). Apache-2.0.
+
+## @zipcoin/kohaku
+
+The $ZC Privacy Pool as a preset for [Kohaku](https://github.com/ethereum/kohaku)'s Privacy Pools plugin: `createZipcoinPlugin(host)` returns
+a `@kohaku-eth/privacy-pools` instance pointed at zipcoin's Entrypoint, relayer (`https://www.zipcoin.cash/relayer`) and association set
+(`https://www.zipcoin.cash/ipfs/<cid>`, the CID written on chain by `updateRoot`). See `packages/kohaku/README.md`.

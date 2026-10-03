@@ -1,0 +1,41 @@
+{
+  "name": "@zipcoin/kohaku",
+  "version": "0.1.0",
+  "description": "zipcoin's ZC Privacy Pool as a preset for Kohaku's Privacy Pools plugin (@kohaku-eth/privacy-pools): zip and unzip $ZC from any Kohaku-based wallet.",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/zipcoincash/zipcoin-agent",
+    "directory": "packages/kohaku"
+  },
+  "homepage": "https://www.zipcoin.cash",
+  "keywords": [
+    "kohaku",
+    "privacy-pools",
+    "zipcoin",
+    "ethereum",
+    "privacy"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.1",
+    "typescript": "5.9.3",
+    "@kohaku-eth/privacy-pools": "0.0.1"
+  },
+  "peerDependencies": {
+    "@kohaku-eth/privacy-pools": ">=0.0.1"
+  }
+}
