@@ -6,6 +6,7 @@ import { normalize } from "viem/ens";
 import { broadcasterAbi, doorstepAbi, entrypointAbi, erc20Abi } from "./abi.js";
 import { encodeDoorSpeech, encodePayment, encodeRelayData, speechParams } from "./codec.js";
 import { ADDR, API, MAX_MESSAGE_BYTES, MAX_TARGET_BYTES, MIN_BURN, MIN_BURN_OF_GIFT_BPS, POOLS, RPC, STOCKEREUM, TOKENS, UNISWAP, ZKAPI, type Holding, type PoolId } from "./config.js";
+import { claimable, claimEnvelope, nameLabel, type NameCheck, type NameRecord } from "./names.js";
 import { hashPrecommitment, type PoolStateJson } from "./tree.js";
 import { depositSecrets, isApproved, masterKeys, mnemonicFromSignature, proveSpend, recoverNotes, ZIP_MESSAGE, type MasterKeys, type Note } from "./zip.js";
 import { encodeAbiParameters } from "viem";
@@ -286,6 +287,58 @@ export class Zipcoin {
     const r = await this.pub.waitForTransactionReceipt({ hash: h });
     if (r.status !== "success") throw new Error("knock reverted");
     return { tx: h, to, url: `${this.api}/b/${h}` };
+  }
+
+  // ---- names: claimed by burning, the Book is the registry ------------------------------------------------------------------
+
+  /** Is this name free, who holds it, and what a claim of it burns right now (by its length, at today's room). */
+  checkName(name: string): Promise<NameCheck> {
+    return this.get<NameCheck>(`/api/v1/names/check?name=${encodeURIComponent(nameLabel(name))}`);
+  }
+
+  /** The names an address holds — this wallet's by default — the one held longest first. */
+  async names(holder?: string): Promise<NameRecord[]> {
+    const who = holder ?? this.address;
+    if (!who) throw new Error("whose names? pass an address, or set ZIPCOIN_KEY");
+    const r = await this.get<{ names: NameRecord[] }>(`/api/v1/names?holder=${encodeURIComponent(await this.resolve(who))}`);
+    return r.names.sort((a, b) => a.since - b.since || a.name.localeCompare(b.name));
+  }
+
+  /**
+   * Claim a name: a public burn through the Broadcaster with `/claim <name>` on the envelope, paid like any speak (ZC in
+   * the wallet, else bought with what it holds). The name binds to this wallet, or to `for` — the only way an anonymous
+   * claim (`anon`, from a zipped note) can name an owner. Checks the name first and says why when it cannot be claimed;
+   * then waits for the Book to read the burn (a minute or two) and tells whether the name is held.
+   */
+  async claim(name: string, opts: { for?: string; message?: string; anon?: boolean; onProgress?: (s: string) => void } = {}) {
+    const label = nameLabel(name);
+    const say = opts.onProgress ?? (() => {});
+    const c = await this.checkName(label);
+    if (opts.anon && !opts.for) throw new Error("an anonymous claim must say who the name is for: pass the address (`for`; --for 0x… in the CLI)");
+    const can = claimable(c, opts.anon ? null : this.address, opts.for);
+    if (!can.ok) throw new Error(can.why);
+    const envelope = claimEnvelope(label, can.bindTo);
+    const message = opts.message?.trim() || `${label}.zipcoin.cash is mine.`;
+    const burn = BigInt(c.presetZc) * 10n ** 18n;
+    say(`${label}.zipcoin.cash is free: burning ${c.presetZc.toLocaleString("en-US")} zc (${c.tier}) with "${envelope}" on the envelope`);
+    const r = opts.anon ? await this.speakAnon(message, burn, { target: envelope, onProgress: say }) : await this.speak(message, burn, envelope);
+    say(`burned (${r.tx}); waiting for the Book to read it`);
+    const registered = await this.untilNamed(label, r.tx);
+    return { ...r, name: label, host: `${label}.zipcoin.cash`, ens: `${label}.zipbook.eth`, page: `${this.api}/u/${label}.zipcoin.cash`, burnedZc: c.presetZc, boundTo: can.bindTo ?? this.address, registered };
+  }
+
+  /** True once the registry shows the burn as the name's binding claim; false after `ms` (the burn is still on chain and the Book will read it). */
+  private async untilNamed(label: string, tx: string, ms = 180_000): Promise<boolean> {
+    const t0 = Date.now();
+    while (Date.now() - t0 < ms) {
+      const r = await fetch(`${this.api}/api/v1/names/${encodeURIComponent(label)}`, { headers: { accept: "application/json" } }).catch(() => null);
+      if (r) {
+        const j = (await r.json().catch(() => null)) as { status?: string; record?: { tx: string | null } | null } | null;
+        if (j?.status === "taken" && j.record?.tx?.toLowerCase() === tx.toLowerCase()) return true;
+      }
+      await new Promise((res) => setTimeout(res, 4000));
+    }
+    return false;
   }
 
   // ---- notes --------------------------------------------------------------------------------------------------------------

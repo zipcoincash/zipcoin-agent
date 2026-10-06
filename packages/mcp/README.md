@@ -1,6 +1,6 @@
 # @zipcoin/mcp
 
-MCP server (stdio) for zipcoin: `zipcoin_speak`, `zipcoin_knock`, `zipcoin_zip`, `zipcoin_notes`, `zipcoin_unzip`, `zipcoin_pay_tag`, `zipcoin_door`, `zipcoin_today`, `zipcoin_price`.
+MCP server (stdio) for zipcoin: `zipcoin_speak`, `zipcoin_knock`, `zipcoin_zip`, `zipcoin_notes`, `zipcoin_unzip`, `zipcoin_pay_tag`, `zipcoin_door`, `zipcoin_today`, `zipcoin_price`, `zipcoin_names_check`, `zipcoin_claim`, `zipcoin_names`.
 
 ```json
 { "mcpServers": { "zipcoin": { "command": "npx", "args": ["-y", "@zipcoin/mcp"], "env": { "ZIPCOIN_KEY": "0x…" } } } }
