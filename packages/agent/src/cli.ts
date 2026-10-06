@@ -3,6 +3,7 @@ import { formatUnits, parseUnits } from "viem";
 
 import { Zipcoin } from "./client.js";
 import { POOLS, type PoolId } from "./config.js";
+import { describeClaimPrice } from "./names.js";
 import { generateZipPhrase } from "./phrase.js";
 
 /**
@@ -16,6 +17,7 @@ import { generateZipPhrase } from "./phrase.js";
  *   zipcoin unzip 1500 --to 0x… [--pool eth]
  *   zipcoin pay 100 --tag alice.zk.money [--pool usdc]
  *   zipcoin door nick.eth | today | feed [--json]
+ *   zipcoin names [--holder 0x…] · names check alice · claim alice [--for 0x…] [--message "…"] [--anon]
  *   zipcoin price | quote | key
  *
  * env: ZIPCOIN_KEY (wallet private key), ZIPCOIN_ZIP_PHRASE (12 words), ZIPCOIN_RPC, ZIPCOIN_API
@@ -181,6 +183,35 @@ try {
       }
       break;
     }
+    case "names": {
+      // zipcoin names [--holder <address|ens>]  ·  zipcoin names check <name>
+      if (rest[0] === "check") {
+        const c = await z.checkName(rest[1] ?? die("usage: zipcoin names check <name>"));
+        const host = `${c.name}.zipcoin.cash`;
+        const line =
+          c.status === "available" || c.status === "released"
+            ? `${host} is free${c.status === "released" ? " again" : ""}. A claim burns ${describeClaimPrice(c)}.`
+            : c.status === "taken"
+              ? `${host} is held by ${c.address} since ${new Date((c.since ?? 0) * 1000).toISOString().slice(0, 10)} · https://www.zipcoin.cash/u/${host}`
+              : c.status === "reserved-for"
+                ? `${host} is kept for ${c.address ?? "the owner of its .eth, which points nowhere yet"}: only a claim for that address counts (zipcoin claim ${c.name} --for ${c.address ?? "0x…"}). It burns ${describeClaimPrice(c)}.`
+                : c.status === "reserved"
+                  ? `${host} is reserved.`
+                  : `${c.name} is not a valid name: 3–24 lowercase letters, digits and hyphens, no hyphen at either end.`;
+        out(json ? c : line);
+        break;
+      }
+      const held = await z.names(str("holder"));
+      out(json ? held : held.length ? held.map((n) => `${(n.name + ".zipcoin.cash").padEnd(32)} since ${new Date(n.since * 1000).toISOString().slice(0, 10)}  ${n.history.length} ${n.history.length === 1 ? "event" : "events"}  https://www.zipcoin.cash/u/${n.name}.zipcoin.cash`).join("\n") : `${str("holder") ?? z.address} holds no name yet`);
+      break;
+    }
+    case "claim": {
+      // zipcoin claim <name> [--for 0x…] [--message "…"] [--anon]: a public burn with /claim on the envelope; --anon burns from a note and binds to --for
+      const name = rest[0] ?? die("usage: zipcoin claim <name> [--for 0x…] [--message \"…\"] [--anon]");
+      const r = await z.claim(name, { for: str("for"), message: str("message") ?? (rest.slice(1).join(" ") || undefined), anon: !!flags.anon, onProgress: (m) => console.error(`… ${m}`) });
+      out(json ? r : `${r.registered ? `${r.host} is yours` : `burned; the Book reads it within a minute or two`}${r.boundTo ? ` (bound to ${r.boundTo})` : ""}: ${r.burnedZc.toLocaleString("en-US")} zc burned\n${r.url}\n${r.page}\nENS: ${r.ens}`);
+      break;
+    }
     case "door": {
       const who = rest[0] ?? die("door required");
       const rows = await z.door(who);
@@ -232,6 +263,8 @@ try {
   ai deposit <eth> · ai chat "<prompt>" [--model id] · ai balance · ai close --to <addr> [--escape] · ai export
       private AI (works with zkAPI, experimental): this wallet deposits into zkAPI's vault, then every chat proves the note and gets
       a 5-minute key; prompts go straight to the model provider. ai fund <eth> [--to …] first sends ETH from a zipped note.
+  names [--holder <address|ens>] · names check <name> · claim <name> [--for 0x…] [--message "…"] [--anon]
+      a name is a public burn with /claim <name> on the envelope: 5+ letters a row (1,000 zc), 4 a card, 3 large; --anon from a note binds to --for
   door <ens|address> · today · feed · price · quote · key · whoami     (--json for machines)
 
 env: ZIPCOIN_KEY, ZIPCOIN_ZIP_PHRASE, ZIPCOIN_RPC, ZIPCOIN_API

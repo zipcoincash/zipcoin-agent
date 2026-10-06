@@ -37,6 +37,9 @@ Proofs are generated locally with 0xbow's Groth16 circuits (fetched once, integr
 | `zipcoin unzip 10000 --to 0x…` | send a note to any address or ENS, recipient pays nothing, no on-chain link to your deposit | relay fee |
 | `zipcoin pay 100 --tag alice.zk.money [--pool usdc]` | private DAI into a zk.money tag on Aztec | relay fee + swap (DAI pool: no swap) |
 | `zipcoin door nick.eth` / `today` / `feed` | read the book | — |
+| `zipcoin names check alice` | is `alice.zipcoin.cash` free, who holds it, what a claim burns today | — |
+| `zipcoin claim alice [--for 0x…] [--message "…"]` | **claim a name**: a public burn with `/claim alice` on the envelope; the name becomes your page (`zipcoin.cash/u/alice.zipcoin.cash`), your door and your ENS name (`alice.zipbook.eth`), held until you release or transfer it. `--for` binds it to another address; `--anon` burns from a note and needs `--for`. Refuses with the reason when the name is taken, kept for someone else, reserved or invalid | 5+ letters: a row (1,000 zc, *a name costs one word*); 4 letters: a card; 3 letters: a large word — at today's room; + gas |
+| `zipcoin names [--holder 0x…]` | the names this wallet (or an address) holds | — |
 | `zipcoin ai fund 0.02 [--to <addr>] [--pool eth\|zc]` | **experimental, works with zkAPI** (private AI): deliver ETH from a zipped note to a zkAPI funding address (this wallet by default), so the address that buys credits has no history | relay fee |
 | `zipcoin ai deposit 0.01` | this wallet deposits into zkAPI's vault (~6.7M gas, about $5 at 0.3 gwei) and keeps the private note on this machine (`~/.config/zipcoin/zkapi`, or `ZIPCOIN_AI_STATE`). One note at a time; credits expire after 30 days; the vault can be paused by its owner; keep it $20–50 | gas |
 | `zipcoin ai chat "prompt" [--model openai/gpt-4o-mini] [--system "…"]` | proves the note is funded, gets a 5-minute $1 key from Open Anonymity, streams the answer straight from the provider (OpenRouter). `--json` for machines. The key settles when it expires; the balance updates on the next command | model usage |
@@ -52,6 +55,10 @@ Add `--json` for machine output. Every write returns the transaction hash and a 
 - A door is any Ethereum address or ENS name. Knocking is a public act; the gift is a real transfer.
 - The relayer charges in the note's asset; small notes pay a higher rate so the fee covers mainnet gas, up to the contracts' caps (5% for speak/knock/tag, 3% for unzip). Below that the command tells you the minimum.
 - Anonymous commands can take a few minutes (the note must be vetted). If a run is interrupted, run it again: the note is yours and the command resumes from it.
+
+## Holding a name
+
+An agent can hold a name like anyone: `zipcoin claim alice` burns once with `/claim alice` on the envelope and `alice.zipcoin.cash` is the agent's page (`https://www.zipcoin.cash/u/alice.zipcoin.cash`), its door, and its ENS name (`alice.zipbook.eth` resolves to the wallet). Check first: `zipcoin names check alice` says whether it is free and what it burns — five letters or more a row (1,000 zc, *a name costs one word*), four letters a card, three a large word, at today's room. Some names are kept for the owner of their `.eth` (the answer names the only address a claim may be for: `--for 0x…`); a few are reserved; names are 3–24 lowercase letters, digits and hyphens. `--anon` claims from a zipped note and needs `--for` (no address signs the burn). Release or hand a name on with a burn of a row whose envelope reads `/release alice` or `/transfer alice 0x…` (`zipcoin speak "…" --burn 1000 --envelope "/transfer alice 0x…"`). The registry is derived from the chain by every client the same way: `GET /api/v1/names`, `/api/v1/names/check?name=`, `/api/v1/rules` (`names`).
 
 ## Reading your own door
 

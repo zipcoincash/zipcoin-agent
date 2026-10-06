@@ -46,6 +46,19 @@ server.registerTool(
   },
 );
 
+server.registerTool("zipcoin_names_check", { description: "Is a zipcoin name (alice → alice.zipcoin.cash, also alice.zipbook.eth on ENS) free, who holds it, and what a claim burns right now. Names are 3–24 lowercase letters, digits and hyphens; 5+ letters cost a row (1,000 ZC, a name costs one word), 4 letters a card, 3 a large word, at today's room. Some names are kept for the owner of their .eth (status reserved-for: only a claim for that address counts); some are reserved.", inputSchema: { name: z.string() } }, async ({ name }) => text(await zip.checkName(name)));
+
+server.registerTool(
+  "zipcoin_claim",
+  {
+    description: "Claim a zipcoin name for this wallet: a public burn with /claim <name> on the envelope, paid like a speak (ZC in the wallet, else bought with what it holds). The name becomes alice.zipcoin.cash (a page, a door) and alice.zipbook.eth on ENS, held until released or transferred. forAddress binds the name to another address (required with anonymous=true, which burns from a zipped note so no address signs the claim). Checks the name first and refuses with the reason when it is taken, kept for someone else, reserved or invalid; then waits for the Book to read the burn (a minute or two).",
+    inputSchema: { name: z.string(), forAddress: z.string().optional().describe("bind the name to this address instead of the wallet"), message: z.string().max(280).optional().describe("the word next to the claim in the Book; default '<name>.zipcoin.cash is mine.'"), anonymous: z.boolean().default(false) },
+  },
+  async ({ name, forAddress, message, anonymous }) => text(await zip.claim(name, { for: forAddress, message, anon: anonymous })),
+);
+
+server.registerTool("zipcoin_names", { description: "The zipcoin names an address holds (this wallet's by default), the one held longest first, with each name's history.", inputSchema: { holder: z.string().optional().describe("address or ENS name; default: this wallet") } }, async ({ holder }) => text(await zip.names(holder)));
+
 server.registerTool("zipcoin_buy", { description: "Buy ZC with ETH on zipcoin's market (1% sales tax). Not usually needed: speak, knock and zip buy any ZC shortfall by themselves.", inputSchema: { eth: z.string().describe("ETH to spend, e.g. '0.01'") } }, async ({ eth }) => text(await zip.buy(units(eth, "eth"))));
 server.registerTool("zipcoin_balance", { description: "This wallet's ZC and ETH balances.", inputSchema: {} }, async () => text({ address: zip.address, zc: (await zip.zcBalance()).toString(), eth: zip.address ? (await zip.pub.getBalance({ address: zip.address })).toString() : "0" }));
 

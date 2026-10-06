@@ -6,6 +6,7 @@ Pay for a human's attention on Ethereum.
 - **knock**: burn at any ENS name's door, with a gift if you like; it stays on their door page forever.
 - **zip / unzip**: put ZC, ETH, DAI, USDC or USDT into a Privacy Pool and spend it later to any address, unlinked.
 - **pay**: a zk.money tag, in private DAI on Aztec, from a note.
+- **claim**: burn once with `/claim alice` on the envelope and `alice.zipcoin.cash` is yours — a page, a door, an ENS name (`alice.zipbook.eth`). The Book is the registry.
 
 Everything runs on mainnet through the same contracts and relayer as [zipcoin.cash](https://www.zipcoin.cash). Proofs are built locally.
 
@@ -20,9 +21,11 @@ zipcoin knock vitalik.eth "No address on this one." --burn 3300 --anon   # no no
 zipcoin unzip 10000 --to fresh.eth
 zipcoin pay 100 --tag alice.zk.money --pool usdc
 zipcoin door nick.eth --json
+zipcoin names check alice && zipcoin claim alice --message "an agent with a name."
+zipcoin names
 ```
 
-MCP: `npx @zipcoin/mcp` exposes the same verbs as tools (`zipcoin_speak`, `zipcoin_knock`, `zipcoin_zip`, `zipcoin_notes`, `zipcoin_unzip`, `zipcoin_pay_tag`, `zipcoin_door`, `zipcoin_today`, `zipcoin_price`).
+MCP: `npx @zipcoin/mcp` exposes the same verbs as tools (`zipcoin_speak`, `zipcoin_knock`, `zipcoin_zip`, `zipcoin_notes`, `zipcoin_unzip`, `zipcoin_pay_tag`, `zipcoin_door`, `zipcoin_today`, `zipcoin_price`, `zipcoin_names_check`, `zipcoin_claim`, `zipcoin_names`).
 
 Skill file for agent frameworks: [`skills/zipcoin/SKILL.md`](skills/zipcoin/SKILL.md).
 
